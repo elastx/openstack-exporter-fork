@@ -22,6 +22,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/flavors"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/projects"
+	"github.com/gophercloud/gophercloud/pagination"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -158,14 +159,29 @@ func ListHypervisors(exporter *BaseOpenStackExporter, ch chan<- prometheus.Metri
 	var allHypervisors []hypervisors.Hypervisor
 	var allAggregates []aggregates.Aggregate
 
-	allPagesHypervisors, err := hypervisors.List(exporter.Client, nil).AllPages()
+	err := hypervisors.List(exporter.Client, nil).EachPage(func(page pagination.Page) (bool, error) {
+		h, _ := hypervisors.ExtractHypervisors(page)
+
+		// Handle the []servers.Server slice.
+		for _, hypervisor := range h {
+			allHypervisors = append(allHypervisors, hypervisor)
+		}
+
+		// Return "false" or an error to prematurely stop fetching new pages.
+		return true, nil
+	})
 	if err != nil {
 		return err
 	}
 
-	if allHypervisors, err = hypervisors.ExtractHypervisors(allPagesHypervisors); err != nil {
-		return err
-	}
+	// allPagesHypervisors, err := hypervisors.List(exporter.Client, nil).AllPages()
+	// if err != nil {
+	// 	return err
+	// }
+
+	// if allHypervisors, err = hypervisors.ExtractHypervisors(allPagesHypervisors); err != nil {
+	// 	return err
+	// }
 
 	allPagesAggregates, err := aggregates.List(exporter.Client).AllPages()
 	if err != nil {
