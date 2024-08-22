@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/gophercloud/gophercloud/openstack/compute/apiversions"
@@ -160,11 +161,15 @@ func ListHypervisors(exporter *BaseOpenStackExporter, ch chan<- prometheus.Metri
 	var allAggregates []aggregates.Aggregate
 
 	err := hypervisors.List(exporter.Client, nil).EachPage(func(page pagination.Page) (bool, error) {
-		h, _ := hypervisors.ExtractHypervisors(page)
-
-		// Handle the []servers.Server slice.
-		for _, hypervisor := range h {
-			allHypervisors = append(allHypervisors, hypervisor)
+		h, err := hypervisors.ExtractHypervisors(page)
+		if err != nil {
+			level.Warn(exporter.logger).Log("msg", "failed to fetch data from hypervisor", "hypervisor", h, "error", err)
+			return true, nil
+		} else {
+			// Handle the []servers.Server slice.
+			for _, hypervisor := range h {
+				allHypervisors = append(allHypervisors, hypervisor)
+			}
 		}
 
 		// Return "false" or an error to prematurely stop fetching new pages.
