@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
 	"sort"
 	"strconv"
 
@@ -166,9 +167,12 @@ func ListHypervisors(exporter *BaseOpenStackExporter, ch chan<- prometheus.Metri
 			level.Warn(exporter.logger).Log("msg", "failed to fetch data from hypervisor", "hypervisor", h, "error", err)
 			return true, nil
 		} else {
-			// Handle the []servers.Server slice.
 			for _, hypervisor := range h {
-				allHypervisors = append(allHypervisors, hypervisor)
+				if reflect.TypeOf((*hypervisors.CPUInfo)(nil)).Elem() == reflect.TypeOf(hypervisor.CPUInfo) {
+					allHypervisors = append(allHypervisors, hypervisor)
+				} else {
+					level.Warn(exporter.logger).Log("msg", "Failed to match CPUInfo type, Unmarshal error for server", "type", reflect.TypeOf(hypervisor.CPUInfo))
+				}
 			}
 		}
 
